@@ -33,117 +33,46 @@ class DuelResetScript : public PlayerScript
             // Cooldowns reset
             if (sConfigMgr->GetBoolDefault("DuelResetCooldowns", true))
             {
-                // Temporary basic cooldown reset
                 player1->RemoveArenaSpellCooldowns();
                 player2->RemoveArenaSpellCooldowns();
-
-                /* TODO: convert this
-                player1->GetSpellHistory()->SaveCooldownStateBeforeDuel();
-                player2->GetSpellHistory()->SaveCooldownStateBeforeDuel();
-
-                ResetSpellCooldowns(player1, true);
-                ResetSpellCooldowns(player2, true);
-                //*/
+                player1->RemoveAura(10278);             // Hand of Protection
+                player2->RemoveAura(10278);
+                player1->RemoveAura(498);               // Divine Protection
+                player2->RemoveAura(498);
+                player1->RemoveAura(642);               // Divine Shield
+                player2->RemoveAura(642);
+                player1->RemoveAura(41425);             // Remove Hypothermia Debuff
+                player2->RemoveAura(41425);
+                player1->RemoveAura(25771);             // Remove Forbearance Debuff
+                player2->RemoveAura(25771);
+                player1->RemoveAura(57724);             // Remove Sated Debuff
+                player2->RemoveAura(57724);
+                player1->RemoveAura(57723);             // Remove Exhaustion Debuff
+                player2->RemoveAura(57723);
+                player1->RemoveAura(66233);             // Remove Ardent Defender Debuff
+                player2->RemoveAura(66233);
+                player1->RemoveAura(61987);             // Avenging Wrath Marker
+                player2->RemoveAura(61987);
+                player1->RemoveAura(11196);             // Remove Recently Bandaged Debuff
+                player2->RemoveAura(11196);
+                player1->ClearDiminishings();
+                player2->ClearDiminishings();
             }
 
-            // Health and mana reset
+            // Health, mana, runic power, rage, reset
             if (sConfigMgr->GetBoolDefault("DuelResetHealthMana", true))
             {
-                player1->SaveHealthBeforeDuel();
                 player1->SetHealth(player1->GetMaxHealth());
-
-                player2->SaveHealthBeforeDuel();
+                player1->SetPower(POWER_MANA, player1->GetMaxPower(POWER_MANA));
                 player2->SetHealth(player2->GetMaxHealth());
+                player2->SetPower(POWER_MANA,  player2->GetMaxPower(POWER_MANA));
+                player1->SetPower(POWER_RAGE, 0);       // Remove Rage and Runic Power
+                player2->SetPower(POWER_RAGE, 0);
+                player1->SetPower(POWER_RUNIC_POWER, 0);
+                player2->SetPower(POWER_RUNIC_POWER, 0);
 
-                // check if player1 class uses mana
-                if (player1->getPowerType() == POWER_MANA || player1->getClass() == CLASS_DRUID)
-                {
-                    player1->SaveManaBeforeDuel();
-                    player1->SetPower(POWER_MANA, player1->GetMaxPower(POWER_MANA));
-                }
-
-                // check if player2 class uses mana
-                if (player2->getPowerType() == POWER_MANA || player2->getClass() == CLASS_DRUID)
-                {
-                    player2->SaveManaBeforeDuel();
-                    player2->SetPower(POWER_MANA, player2->GetMaxPower(POWER_MANA));
-                }
             }
         }
-
-        // Called when a duel ends
-        void OnDuelEnd(Player* winner, Player* loser, DuelCompleteType type) override
-        {
-            // do not reset anything if DUEL_INTERRUPTED or DUEL_FLED
-            if (type == DUEL_WON)
-            {
-                // Cooldown restore
-                if (sConfigMgr->GetBoolDefault("DuelResetCooldowns", true))
-                {
-                    /* TODO: convert this
-                    ResetSpellCooldowns(winner, false);
-                    ResetSpellCooldowns(loser, false);
-
-                    winner->GetSpellHistory()->RestoreCooldownStateAfterDuel();
-                    loser->GetSpellHistory()->RestoreCooldownStateAfterDuel();
-                    //*/
-                }
-
-                // Health and mana restore
-                if (sConfigMgr->GetBoolDefault("DuelResetHealthMana", true))
-                {
-                    winner->RestoreHealthAfterDuel();
-                    loser->RestoreHealthAfterDuel();
-
-                    // check if player1 class uses mana
-                    if (winner->getPowerType() == POWER_MANA || winner->getClass() == CLASS_DRUID)
-                        winner->RestoreManaAfterDuel();
-
-                    // check if player2 class uses mana
-                    if (loser->getPowerType() == POWER_MANA || loser->getClass() == CLASS_DRUID)
-                        loser->RestoreManaAfterDuel();
-                }
-            }
-        }
-
-        /* TODO: convert this
-        static void ResetSpellCooldowns(Player* player, bool onStartDuel)
-        {
-
-            if (onStartDuel)
-            {
-                // remove cooldowns on spells that have < 10 min CD > 30 sec and has no onHold
-                player->GetSpellHistory()->ResetCooldowns([](SpellHistory::CooldownStorageType::iterator itr) -> bool
-                {
-                    SpellHistory::Clock::time_point now = SpellHistory::Clock::now();
-                    uint32 cooldownDuration = itr->second.CooldownEnd > now ? std::chrono::duration_cast<std::chrono::milliseconds>(itr->second.CooldownEnd - now).count() : 0;
-                    SpellInfo const* spellInfo = sSpellMgr->AssertSpellInfo(itr->first);
-                    return spellInfo->RecoveryTime < 10 * MINUTE * IN_MILLISECONDS
-                           && spellInfo->CategoryRecoveryTime < 10 * MINUTE * IN_MILLISECONDS
-                           && !itr->second.OnHold
-                           && cooldownDuration > 0
-                           && ( spellInfo->RecoveryTime - cooldownDuration ) > (MINUTE / 2) * IN_MILLISECONDS
-                           && ( spellInfo->CategoryRecoveryTime - cooldownDuration ) > (MINUTE / 2) * IN_MILLISECONDS;
-                }, true);
-            }
-            else
-            {
-                // remove cooldowns on spells that have < 10 min CD and has no onHold
-                player->GetSpellHistory()->ResetCooldowns([](SpellHistory::CooldownStorageType::iterator itr) -> bool
-                {
-                    SpellInfo const* spellInfo = sSpellMgr->AssertSpellInfo(itr->first);
-                    return spellInfo->RecoveryTime < 10 * MINUTE * IN_MILLISECONDS
-                           && spellInfo->CategoryRecoveryTime < 10 * MINUTE * IN_MILLISECONDS
-                           && !itr->second.OnHold;
-                }, true);
-            }
-
-            // pet cooldowns
-            if (Pet* pet = player->GetPet())
-                pet->GetSpellHistory()->ResetAllCooldowns();
-            //
-        }
-        */
 };
 
 class DuelResetWorld : public WorldScript
